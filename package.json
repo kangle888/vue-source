@@ -1,0 +1,26 @@
+{
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "dev": "node scripts/dev.cjs",
+    "test": "lerna run test",
+    "lint": "lerna run lint",
+    "prepare": "lerna bootstrap"
+  },
+  "name": "vue-source",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "execa": "^9.3.0",
+    "rollup": "^4.18.1",
+    "rollup-plugin-typescript2": "^0.36.0",
+    "typescript": "^5.5.3"
+  },
+  "type": "module"
+}
