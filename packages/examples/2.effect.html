@@ -1,19 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
-<body>
-  <script src="../reactivity/dist/reactivity.global.js"></script>
-  <script>
-    const {reactive, effect} = window.VueReactivity;
-    let obj = {name: 'zhangsan', age: 18};
-    const state = reactive(obj);
-    effect(() => {
-      console.log(state.name+'---'+state.age);
-    });
-  </script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script src="../reactivity/dist/reactivity.global.js"></script>
+    <script>
+      const { reactive, effect } = window.VueReactivity;
+      let obj = { name: "zhangsan", age: 18 };
+      const state = reactive(obj);
+      effect(() => {
+        state.name;
+      });
+      effect(() => {
+        state.name;
+      });
+    </script>
+  </body>
 </html>

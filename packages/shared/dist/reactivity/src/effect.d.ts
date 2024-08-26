@@ -1,5 +1,5 @@
 export declare function effect(fn: any, options?: any): {
-    (): void;
+    (): any;
     id: number;
     _isEffect: boolean;
     raw: any;
