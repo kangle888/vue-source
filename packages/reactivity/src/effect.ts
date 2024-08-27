@@ -1,6 +1,8 @@
 // 定义了 effect 函数，用于创建一个响应式的副作用函数
 // effect 函数接收两个参数，第一个参数是一个函数，第二个参数是一个配置对象
 // effect 函数返回一个函数，这个函数就是响应式的副作用函数
+import { isArray, isIntegerKey } from "@vue/shared";
+import { TrackOpTypes } from "./operations";
 
 export function effect(fn, options: any = {}) {
   if (fn.effect) {
@@ -80,3 +82,49 @@ export function Track(target, type, key) {
 //         state.age = 20
 //      }
 // })
+
+// 触发更新
+//1、处理对象
+export function trigger(target, type, key, newValue?, oldValue?) {
+  console.log("触发更新", target, type, key, newValue, oldValue);
+  // 获取对应的effect
+  const depsMap = targetMap.get(target);
+  if (!depsMap) {
+    return;
+  }
+  // 有目标对象
+  let effectSet = new Set(); // 如果有多个同时修改一个值，set过滤掉重复的effect
+  const add = (effectsAdd) => {
+    if (effectsAdd) {
+      effectsAdd.forEach((effect) => {
+        effectSet.add(effect);
+      });
+    }
+  };
+  add(depsMap.get(key));
+  // 处理数组 就是  key = length
+  if (key === "length" && isArray(target)) {
+    depsMap.forEach((dep, key) => {
+      // 如果改变的是数组长度，那么length也要触发更新
+      if (key === "length" || key >= newValue) {
+        add(dep);
+      }
+    });
+  } else {
+    // 对象
+    if (key !== undefined) {
+      add(depsMap.get(key));
+    }
+    // 数组  使用 索引进行修改
+    switch (type) {
+      case TrackOpTypes.ADD:
+        if (isArray(target) && isIntegerKey(key)) {
+          add(depsMap.get("length"));
+        }
+    }
+  }
+  // 执行effectSet
+  effectSet.forEach((effect: any) => {
+    effect();
+  });
+}

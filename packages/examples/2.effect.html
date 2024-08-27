@@ -9,14 +9,15 @@
     <script src="../reactivity/dist/reactivity.global.js"></script>
     <script>
       const { reactive, effect } = window.VueReactivity;
-      let obj = { name: "zhangsan", age: 18 };
+      let obj = { name: "zhangsan", age: 18, list: [1, 2, 3, 4, 5] };
       const state = reactive(obj);
       effect(() => {
-        state.name;
+        console.log("effect", state.name + " " + state.list[0]);
       });
-      effect(() => {
-        state.name;
-      });
+      setTimeout(() => {
+        state.name = "lisi";
+        state.list[10] = 100;
+      }, 1000);
     </script>
   </body>
 </html>

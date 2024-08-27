@@ -29,3 +29,5 @@ export function hasOwn(target, key) {
 export function isIntegerKey(key) {
   return parseInt(key) + "" === key;
 }
+
+export const hasChanged = (value, oldValue) => value !== oldValue;

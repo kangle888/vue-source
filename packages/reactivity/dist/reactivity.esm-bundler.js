@@ -13,6 +13,7 @@ function hasOwn(target, key) {
 function isIntegerKey(key) {
     return parseInt(key) + "" === key;
 }
+const hasChanged = (value, oldValue) => value !== oldValue;
 
 // 定义了 effect 函数，用于创建一个响应式的副作用函数
 // effect 函数接收两个参数，第一个参数是一个函数，第二个参数是一个配置对象
@@ -91,6 +92,52 @@ function Track(target, type, key) {
 //         state.age = 20
 //      }
 // })
+// 触发更新
+//1、处理对象
+function trigger(target, type, key, newValue, oldValue) {
+    console.log("触发更新", target, type, key, newValue, oldValue);
+    // 获取对应的effect
+    const depsMap = targetMap.get(target);
+    if (!depsMap) {
+        return;
+    }
+    // 有目标对象
+    let effectSet = new Set(); // 如果有多个同时修改一个值，set过滤掉重复的effect
+    const add = (effectsAdd) => {
+        if (effectsAdd) {
+            effectsAdd.forEach((effect) => {
+                effectSet.add(effect);
+            });
+        }
+    };
+    add(depsMap.get(key));
+    // 处理数组 就是  key = length
+    if (key === "length" && isArray(target)) {
+        depsMap.forEach((dep, key) => {
+            // 如果改变的是数组长度，那么length也要触发更新
+            if (key === "length" || key >= newValue) {
+                add(dep);
+            }
+        });
+    }
+    else {
+        // 对象
+        if (key !== undefined) {
+            add(depsMap.get(key));
+        }
+        // 数组  使用 索引进行修改
+        switch (type) {
+            case 1 /* TrackOpTypes.ADD */:
+                if (isArray(target) && isIntegerKey(key)) {
+                    add(depsMap.get("length"));
+                }
+        }
+    }
+    // 执行effectSet
+    effectSet.forEach((effect) => {
+        effect();
+    });
+}
 
 // get 柯里化方法
 const get = createGetter(); // 不是仅读的 可以修改(深度)
@@ -107,12 +154,14 @@ const shallowReactiveSet = createSetter(true);
  */
 function createSetter(shallow = false) {
     return function set(target, key, value, receiver) {
+        // 这里需要先获取老值
+        const oldValue = target[key];
+        // 这里是将target 设置为最新的值
         const res = Reflect.set(target, key, value, receiver);
         console.log("响应式设置", key, value);
         // 注意 1 如果是新增属性 2 如果是修改属性
         // 如果是新增属性 会触发两次 1.添加属性 2.修改属性
         // 如果是修改属性 会触发一次
-        const oldValue = target[key];
         // 判断数组还是对象  [1,2,3]  Number(key) < target.length这里判断为修改数组
         let hasKey = isArray(target) && isIntegerKey(key)
             ? Number(key) < target.length
@@ -120,12 +169,12 @@ function createSetter(shallow = false) {
         if (!hasKey) {
             console.log("新增属性");
             // 新增属性
-            // Track(target, TrackOpTypes.ADD, key)
+            trigger(target, 1 /* TrackOpTypes.ADD */, key, value);
         }
         else if (oldValue !== value) {
             console.log("修改属性");
             // 修改属性
-            // trigger(target, TrackOpTypes.SET, key, value, oldValue)
+            trigger(target, 2 /* TrackOpTypes.SET */, key, value, oldValue);
         }
         return res;
     };
@@ -236,5 +285,44 @@ function createReactiveObject(target, isReadonly = false, baseHandlers) {
 }
 // 注意 核心 proxy
 
-export { effect, reactive, readonly, shallowReactive, shallowReadonly };
+function ref(value) {
+    return createRef(value);
+}
+function shallowRef(value) {
+    return createRef(value, true);
+}
+function createRef(rawValue, shallow = false) {
+    // if (isRef(rawValue)) {
+    //   return rawValue;
+    // }
+    return new RefImpl(rawValue, shallow);
+}
+// 创建类
+class RefImpl {
+    rawValue;
+    shallow;
+    _value;
+    __v_isRef = true;
+    constructor(rawValue, shallow) {
+        this.rawValue = rawValue;
+        this.shallow = shallow;
+        this._value = rawValue;
+    }
+    get value() {
+        // 收集依赖
+        Track(this, 0 /* TrackOpTypes.GET */, "value");
+        return this._value;
+    }
+    set value(newVal) {
+        if (hasChanged(newVal, this._value)) {
+            this._value = newVal;
+            this.rawValue = newVal;
+            // 触发更新
+            console.log("ref触发更新");
+            trigger(this, 2 /* TrackOpTypes.SET */, "value", newVal);
+        }
+    }
+}
+
+export { effect, reactive, readonly, ref, shallowReactive, shallowReadonly, shallowRef };
 //# sourceMappingURL=reactivity.esm-bundler.js.map

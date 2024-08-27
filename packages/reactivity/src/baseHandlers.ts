@@ -9,7 +9,8 @@ import {
 } from "@vue/shared";
 import { reactive, readonly } from "./reacvtive";
 import { TrackOpTypes } from "./operations";
-import { Track } from "./effect";
+import { Track, trigger } from "./effect";
+
 // get 柯里化方法
 
 const get = createGetter(); // 不是仅读的 可以修改(深度)
@@ -29,12 +30,15 @@ const shallowReactiveSet = createSetter(true);
 
 function createSetter(shallow = false) {
   return function set(target, key, value, receiver) {
+    // 这里需要先获取老值
+    const oldValue = target[key];
+    // 这里是将target 设置为最新的值
     const res = Reflect.set(target, key, value, receiver);
     console.log("响应式设置", key, value);
     // 注意 1 如果是新增属性 2 如果是修改属性
     // 如果是新增属性 会触发两次 1.添加属性 2.修改属性
     // 如果是修改属性 会触发一次
-    const oldValue = target[key];
+
     // 判断数组还是对象  [1,2,3]  Number(key) < target.length这里判断为修改数组
     let hasKey =
       isArray(target) && isIntegerKey(key)

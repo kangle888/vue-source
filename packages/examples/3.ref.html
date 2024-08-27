@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script src="../reactivity/dist/reactivity.global.js"></script>
+    <div id="app"></div>
+    <script>
+      // ref 就是将普通的数据类型  实现代理
+      // 原理 是 object.defineProperty
+      // 返回值是一个实例对象  有value属性
+      const { reactive, effect, ref } = window.VueReactivity;
+      let name = ref("zhangsan");
+      effect(() => {
+        app.innerHTML = name.value;
+      });
+      setTimeout(() => {
+        name.value = "lisi";
+      }, 1000);
+      console.log(name.value, "name----------");
+    </script>
+  </body>
+</html>
