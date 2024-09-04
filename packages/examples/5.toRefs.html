@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script src="../reactivity/dist/reactivity.global.js"></script>
+    <script>
+      // toRef 就是将一个对象的属性  转换成一个ref对象
+      const { reactive, effect, toRefs } = window.VueReactivity;
+      let obj = { name: "zhangsan", age: 18 };
+      let { name, age } = toRefs(obj);
+      console.log(name.value, age.value, "nameRef----------");
+    </script>
+  </body>
+</html>

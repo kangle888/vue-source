@@ -9,4 +9,13 @@ declare class RefImpl {
     get value(): any;
     set value(newVal: any);
 }
+export declare function toRef(object: any, key: any): ObjectRefImpl;
+declare class ObjectRefImpl {
+    object: any;
+    key: any;
+    __v_isRef: boolean;
+    constructor(object: any, key: any);
+    get value(): any;
+    set value(newVal: any);
+}
 export {};

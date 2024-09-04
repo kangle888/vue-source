@@ -49,4 +49,4 @@ const createConfig = (format, output) => {
   };
 }
 
-export default  packageOptions.formats.map(format => createConfig(format, outputConfigs[format]));
+export default packageOptions.formats.map(format => createConfig(format, outputConfigs[format]));

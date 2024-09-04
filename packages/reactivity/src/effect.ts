@@ -125,6 +125,11 @@ export function trigger(target, type, key, newValue?, oldValue?) {
   }
   // 执行effectSet
   effectSet.forEach((effect: any) => {
-    effect();
+    // effect();
+    if (effect.options.scheduler) {
+      effect.options.scheduler(effect);
+    } else {
+      effect();
+    }
   });
 }

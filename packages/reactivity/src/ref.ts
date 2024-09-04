@@ -39,3 +39,28 @@ class RefImpl {
     }
   }
 }
+
+// 实现toRef
+export function toRef(object, key) {
+  return new ObjectRefImpl(object, key);
+}
+
+class ObjectRefImpl {
+  public __v_isRef = true;
+  constructor(public object, public key) {}
+  get value() {
+    return this.object[this.key];
+  }
+  set value(newVal) {
+    this.object[this.key] = newVal;
+  }
+}
+
+// 实现toRefs
+export function toRefs(object) {
+  const ret = Array.isArray(object) ? new Array(object.length) : {};
+  for (const key in object) {
+    ret[key] = toRef(object, key);
+  }
+  return ret;
+}

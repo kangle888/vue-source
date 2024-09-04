@@ -5,6 +5,9 @@ function isObject(val) {
 function isArray(val) {
     return Array.isArray(val);
 }
+function isFunction(val) {
+    return typeof val === "function";
+}
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 function hasOwn(target, key) {
     return hasOwnProperty.call(target, key);
@@ -135,7 +138,13 @@ function trigger(target, type, key, newValue, oldValue) {
     }
     // 执行effectSet
     effectSet.forEach((effect) => {
-        effect();
+        // effect();
+        if (effect.options.scheduler) {
+            effect.options.scheduler(effect);
+        }
+        else {
+            effect();
+        }
     });
 }
 
@@ -323,6 +332,84 @@ class RefImpl {
         }
     }
 }
+// 实现toRef
+function toRef(object, key) {
+    return new ObjectRefImpl(object, key);
+}
+class ObjectRefImpl {
+    object;
+    key;
+    __v_isRef = true;
+    constructor(object, key) {
+        this.object = object;
+        this.key = key;
+    }
+    get value() {
+        return this.object[this.key];
+    }
+    set value(newVal) {
+        this.object[this.key] = newVal;
+    }
+}
+// 实现toRefs
+function toRefs(object) {
+    const ret = Array.isArray(object) ? new Array(object.length) : {};
+    for (const key in object) {
+        ret[key] = toRef(object, key);
+    }
+    return ret;
+}
 
-export { effect, reactive, readonly, ref, shallowReactive, shallowReadonly, shallowRef };
+function computed(getterOrOptions) {
+    // 这里的getterOrOptions 可能是一个函数，也可能是一个对象
+    let getter;
+    let setter;
+    if (isFunction(getterOrOptions)) {
+        getter = getterOrOptions;
+        setter = () => {
+            console.warn("Write operation failed: computed value is readonly");
+        };
+    }
+    else {
+        getter = getterOrOptions.get;
+        setter = getterOrOptions.set;
+    }
+    // 返回值
+    return new ComputedRefImpl(getter, setter);
+}
+class ComputedRefImpl {
+    _setter;
+    // 定义属性
+    _dirty = true; // 默认执行
+    _value; // 缓存值
+    effect; // 用于收集依赖
+    constructor(getter, _setter) {
+        this._setter = _setter;
+        this.effect = effect(getter, {
+            lazy: true,
+            scheduler: () => {
+                if (!this._dirty) {
+                    this._dirty = true;
+                    // 触发更新
+                    // trigger(this, "set", "value");
+                }
+            },
+        });
+    }
+    get value() {
+        // 获取执行
+        if (this._dirty) {
+            // 这个effect就是  构造函数中的 this.effect
+            this._value = this.effect();
+            this._dirty = false;
+        }
+        // 收集依赖
+        return this._value;
+    }
+    set value(newValue) {
+        this._setter(newValue);
+    }
+}
+
+export { computed, effect, reactive, readonly, ref, shallowReactive, shallowReadonly, shallowRef, toRef, toRefs };
 //# sourceMappingURL=reactivity.esm-bundler.js.map

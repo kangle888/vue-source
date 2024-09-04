@@ -8,6 +8,9 @@ var VueReactivity = (function (exports) {
   function isArray(val) {
       return Array.isArray(val);
   }
+  function isFunction(val) {
+      return typeof val === "function";
+  }
   const hasOwnProperty = Object.prototype.hasOwnProperty;
   function hasOwn(target, key) {
       return hasOwnProperty.call(target, key);
@@ -138,7 +141,13 @@ var VueReactivity = (function (exports) {
       }
       // 执行effectSet
       effectSet.forEach((effect) => {
-          effect();
+          // effect();
+          if (effect.options.scheduler) {
+              effect.options.scheduler(effect);
+          }
+          else {
+              effect();
+          }
       });
   }
 
@@ -326,7 +335,86 @@ var VueReactivity = (function (exports) {
           }
       }
   }
+  // 实现toRef
+  function toRef(object, key) {
+      return new ObjectRefImpl(object, key);
+  }
+  class ObjectRefImpl {
+      object;
+      key;
+      __v_isRef = true;
+      constructor(object, key) {
+          this.object = object;
+          this.key = key;
+      }
+      get value() {
+          return this.object[this.key];
+      }
+      set value(newVal) {
+          this.object[this.key] = newVal;
+      }
+  }
+  // 实现toRefs
+  function toRefs(object) {
+      const ret = Array.isArray(object) ? new Array(object.length) : {};
+      for (const key in object) {
+          ret[key] = toRef(object, key);
+      }
+      return ret;
+  }
 
+  function computed(getterOrOptions) {
+      // 这里的getterOrOptions 可能是一个函数，也可能是一个对象
+      let getter;
+      let setter;
+      if (isFunction(getterOrOptions)) {
+          getter = getterOrOptions;
+          setter = () => {
+              console.warn("Write operation failed: computed value is readonly");
+          };
+      }
+      else {
+          getter = getterOrOptions.get;
+          setter = getterOrOptions.set;
+      }
+      // 返回值
+      return new ComputedRefImpl(getter, setter);
+  }
+  class ComputedRefImpl {
+      _setter;
+      // 定义属性
+      _dirty = true; // 默认执行
+      _value; // 缓存值
+      effect; // 用于收集依赖
+      constructor(getter, _setter) {
+          this._setter = _setter;
+          this.effect = effect(getter, {
+              lazy: true,
+              scheduler: () => {
+                  if (!this._dirty) {
+                      this._dirty = true;
+                      // 触发更新
+                      // trigger(this, "set", "value");
+                  }
+              },
+          });
+      }
+      get value() {
+          // 获取执行
+          if (this._dirty) {
+              // 这个effect就是  构造函数中的 this.effect
+              this._value = this.effect();
+              this._dirty = false;
+          }
+          // 收集依赖
+          return this._value;
+      }
+      set value(newValue) {
+          this._setter(newValue);
+      }
+  }
+
+  exports.computed = computed;
   exports.effect = effect;
   exports.reactive = reactive;
   exports.readonly = readonly;
@@ -334,6 +422,8 @@ var VueReactivity = (function (exports) {
   exports.shallowReactive = shallowReactive;
   exports.shallowReadonly = shallowReadonly;
   exports.shallowRef = shallowRef;
+  exports.toRef = toRef;
+  exports.toRefs = toRefs;
 
   return exports;
 

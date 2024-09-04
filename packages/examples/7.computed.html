@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script src="../reactivity/dist/reactivity.global.js"></script>
+    <script>
+      // computed 计算属性
+      // 特点： 1、 定义了没有使用 是不会
+      // 2、 依赖的值发生变化 会重新计算
+      // 3、 会缓存计算的结果, 如果依赖的值没有发生变化，不会重新计算,只执行一次
+      // 4、 如果计算属性发送变化，但是没有被使用，不会重新计算
+      const { reactive, effect, toRefs, computed, ref } = window.VueReactivity;
+      let age = ref(18);
+      let myAge = computed(() => {
+        console.log("计算属性被调用了");
+        return age.value + 2;
+      });
+      setTimeout(() => {
+        age.value = 20;
+        console.log(myAge.value, "myAge");
+      }, 1000);
+      console.log(myAge.value, "myAge");
+    </script>
+  </body>
+</html>

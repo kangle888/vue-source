@@ -1,27 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
-<body>
-  <script src="../reactivity/dist/reactivity.global.js"></script>
-  <script>
-    const { reactive, readonly, shallowReactive,shallowReadonly} = window.VueReactivity;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script src="../reactivity/dist/reactivity.global.js"></script>
+    <script>
+      const { reactive, readonly, shallowReactive, shallowReadonly } =
+        window.VueReactivity;
 
-    const state = readonly({
-      count: 0
-    });
-    console.log(state);
-    state.count = 1;
-    /**
-     *总结：
-      * 1. readonly 只能读取数据，不能修改数据
-      * 2. shallowReadonly 只能读取数据，不能修改数据，且只能浅层代理
-      * 3. shallowReactive 可以修改数据，但是只能浅层代理
-      * 4. reactive 可以修改数据，且可以深层代理
-     */
-  </script>
-</body>
+      const state = reactive({
+        count: 0,
+        Number: {
+          age: 18,
+        },
+      });
+      console.log(state);
+      state.count = 1;
+      /**
+       *总结：
+       * 1. readonly 只能读取数据，不能修改数据
+       * 2. shallowReadonly 只能读取数据，不能修改数据，且只能浅层代理
+       * 3. shallowReactive 可以修改数据，但是只能浅层代理
+       * 4. reactive 可以修改数据，且可以深层代理
+       */
+    </script>
+  </body>
 </html>
