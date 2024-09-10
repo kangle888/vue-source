@@ -26,7 +26,10 @@ var VueShared = (function (exports) {
       return parseInt(key) + "" === key;
   }
   const hasChanged = (value, oldValue) => value !== oldValue;
+  // 合并
+  const extend = Object.assign;
 
+  exports.extend = extend;
   exports.hasChanged = hasChanged;
   exports.hasOwn = hasOwn;
   exports.isArray = isArray;

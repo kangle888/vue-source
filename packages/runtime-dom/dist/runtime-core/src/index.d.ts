@@ -1,1 +1,1 @@
-declare let a: number;
+export { createRender } from "./render";

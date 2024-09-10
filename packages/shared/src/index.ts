@@ -31,3 +31,8 @@ export function isIntegerKey(key) {
 }
 
 export const hasChanged = (value, oldValue) => value !== oldValue;
+
+// 合并
+export const extend = Object.assign;
+
+export { ShapeFlags } from "./shapeFlag";

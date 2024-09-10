@@ -23,6 +23,8 @@ function isIntegerKey(key) {
     return parseInt(key) + "" === key;
 }
 const hasChanged = (value, oldValue) => value !== oldValue;
+// 合并
+const extend = Object.assign;
 
-export { hasChanged, hasOwn, isArray, isFunction, isIntegerKey, isNumber, isObject, isString };
+export { extend, hasChanged, hasOwn, isArray, isFunction, isIntegerKey, isNumber, isObject, isString };
 //# sourceMappingURL=shared.esm-bundler.js.map

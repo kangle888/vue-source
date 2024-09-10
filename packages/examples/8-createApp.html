@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="app">1000</div>
+    <script src="../runtime-dom/dist/runtime-dom.global.js"></script>
+    <script>
+      console.log(VueRuntimeDom);
+      const { createApp } = VueRuntimeDom;
+      let App = {
+        render() {
+          console.log("render");
+        },
+      };
+      createApp(App, { name: "张三", age: 10 }).mount("#app");
+      // 总结：渲染初始化 1： runtime-dom    2：runtime-core 渲染
+
+      // 2 组件初始化
+    </script>
+  </body>
+</html>

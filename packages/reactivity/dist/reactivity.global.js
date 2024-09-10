@@ -63,7 +63,7 @@ var VueReactivity = (function (exports) {
       effect.options = options; // 报存用户传入的配置
       return effect;
   }
-  // 收集effect依赖, 在获取数据的时候触发get  手机effect
+  // 收集effect依赖, 在获取数据的时候触发get  收集effect
   let targetMap = new WeakMap();
   function Track(target, type, key) {
       console.log("收集依赖", target, type, key, activeEffect);
