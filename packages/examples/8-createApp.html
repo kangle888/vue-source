@@ -10,7 +10,7 @@
     <script src="../runtime-dom/dist/runtime-dom.global.js"></script>
     <script>
       console.log(VueRuntimeDom);
-      const { createApp } = VueRuntimeDom;
+      const { createApp , h} = VueRuntimeDom;
       let App = {
         setup(props, ctx) {
           console.log("setup", props, ctx);
@@ -22,8 +22,14 @@
         render(proxy) {
           // h("div", null, "1000");
           // h函数
-
-          console.log("render", this, proxy);
+          // 有两个参数，第一个参数是标签名，第二个参数是属性，第三个参数是子元素
+          // h函数返回一个vnode
+          // h（“div”，'hello'）
+          // h("div", {});
+          // children
+          // h("div", {}, "1000");
+          return h("div", {style:{color:"red"}}, "hello");
+          // console.log("render", this, proxy);
         },
       };
       createApp(App, { name: "张三", age: 10 }).mount("#app");

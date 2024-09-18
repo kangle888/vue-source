@@ -31,3 +31,6 @@ export function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
+
+
+// h函数是变成虚拟dom的函数

@@ -23,9 +23,21 @@ var VueRuntimeDom = (function (exports) {
   function isArray(val) {
       return Array.isArray(val);
   }
+  function isFunction(val) {
+      return typeof val === "function";
+  }
   function isString(val) {
       return typeof val === "string";
   }
+  const hasOwnProperty = Object.prototype.hasOwnProperty;
+  function hasOwn(target, key) {
+      return hasOwnProperty.call(target, key);
+  }
+  // 判断是否是整数的key
+  function isIntegerKey(key) {
+      return parseInt(key) + "" === key;
+  }
+  const hasChanged = (value, oldValue) => value !== oldValue;
   // 合并
   const extend = Object.assign;
 
@@ -201,6 +213,18 @@ var VueRuntimeDom = (function (exports) {
       }
       vnode.shapeFlag |= type; // 位运算符 这里是位运算
       // 例如 0000100 | 0000010 = 0000110
+  }
+  function isVnode(vnode) {
+      // 判断是不是虚拟节点
+      return vnode._v_isVNode;
+  }
+  // 元素的children 变成vnode
+  const TEXT = Symbol("text");
+  function CVnode(child) {
+      if (isObject(child)) {
+          return child;
+      }
+      return createVNode(TEXT, null, child + "");
   }
 
   function apiCreateApp(render) {
@@ -381,11 +405,363 @@ var VueRuntimeDom = (function (exports) {
       effect.options = options; // 报存用户传入的配置
       return effect;
   }
+  // 收集effect依赖, 在获取数据的时候触发get  收集effect
+  let targetMap = new WeakMap();
+  function Track(target, type, key) {
+      console.log("收集依赖", target, type, key, activeEffect);
+      // 对应的effect
+      // key 和我们的effect 一一对应 map=> key = target => 属性 => [effect] set
+      if (activeEffect === undefined) {
+          // 没有effect依赖
+          return;
+      }
+      // 获取effect  {target:{key:(name)}}
+      let depsMap = targetMap.get(target);
+      if (!depsMap) {
+          targetMap.set(target, (depsMap = new Map()));
+      }
+      // 获取key对应的effect
+      let dep = depsMap.get(key);
+      if (!dep) {
+          depsMap.set(key, (dep = new Set()));
+      }
+      // 如果没有收集过依赖
+      if (!dep.has(activeEffect)) {
+          dep.add(activeEffect);
+      }
+      console.log("targetMap", targetMap);
+  }
+  // 问题  effect 会有嵌套的问题存在
+  // effect(() => {
+  //   state.name = 'lisi'
+  //   state.age = 20
+  //    effect(() => {
+  //       state.name = 'lisi'
+  //         state.age = 20
+  //      }
+  // })
+  // 触发更新
+  //1、处理对象
+  function trigger(target, type, key, newValue, oldValue) {
+      console.log("触发更新", target, type, key, newValue, oldValue);
+      // 获取对应的effect
+      const depsMap = targetMap.get(target);
+      if (!depsMap) {
+          return;
+      }
+      // 有目标对象
+      let effectSet = new Set(); // 如果有多个同时修改一个值，set过滤掉重复的effect
+      const add = (effectsAdd) => {
+          if (effectsAdd) {
+              effectsAdd.forEach((effect) => {
+                  effectSet.add(effect);
+              });
+          }
+      };
+      add(depsMap.get(key));
+      // 处理数组 就是  key = length
+      if (key === "length" && isArray(target)) {
+          depsMap.forEach((dep, key) => {
+              // 如果改变的是数组长度，那么length也要触发更新
+              if (key === "length" || key >= newValue) {
+                  add(dep);
+              }
+          });
+      }
+      else {
+          // 对象
+          if (key !== undefined) {
+              add(depsMap.get(key));
+          }
+          // 数组  使用 索引进行修改
+          switch (type) {
+              case 1 /* TrackOpTypes.ADD */:
+                  if (isArray(target) && isIntegerKey(key)) {
+                      add(depsMap.get("length"));
+                  }
+          }
+      }
+      // 执行effectSet
+      effectSet.forEach((effect) => {
+          // effect();
+          if (effect.options.scheduler) {
+              effect.options.scheduler(effect);
+          }
+          else {
+              effect();
+          }
+      });
+  }
+
+  // get 柯里化方法
+  const get = createGetter(); // 不是仅读的 可以修改(深度)
+  const shallowReactiveGet = createGetter(false, true); // 不是仅读的 可以修改(浅层)
+  const readonlyGet = createGetter(true); // 仅读的 不能修改
+  const shallowReadonlyGet = createGetter(true, true); // 仅读的 不能修改
+  // set 柯里化方法
+  const set = createSetter();
+  const shallowReactiveSet = createSetter(true);
+  /**
+   *
+   * @param shallow 是否是浅层
+   * @returns
+   */
+  function createSetter(shallow = false) {
+      return function set(target, key, value, receiver) {
+          // 这里需要先获取老值
+          const oldValue = target[key];
+          // 这里是将target 设置为最新的值
+          const res = Reflect.set(target, key, value, receiver);
+          console.log("响应式设置", key, value);
+          // 注意 1 如果是新增属性 2 如果是修改属性
+          // 如果是新增属性 会触发两次 1.添加属性 2.修改属性
+          // 如果是修改属性 会触发一次
+          // 判断数组还是对象  [1,2,3]  Number(key) < target.length这里判断为修改数组
+          let hasKey = isArray(target) && isIntegerKey(key)
+              ? Number(key) < target.length
+              : hasOwn(target, key);
+          if (!hasKey) {
+              console.log("新增属性");
+              // 新增属性
+              trigger(target, 1 /* TrackOpTypes.ADD */, key, value);
+          }
+          else if (oldValue !== value) {
+              console.log("修改属性");
+              // 修改属性
+              trigger(target, 2 /* TrackOpTypes.SET */, key, value, oldValue);
+          }
+          return res;
+      };
+  }
+  /**
+   *
+   * @param isReadonly  是否是只读
+   * @param shall  是否是浅层
+   * @returns
+   */
+  function createGetter(isReadonly = false, shall = false) {
+      return function get(target, key, receiver) {
+          const res = Reflect.get(target, key, receiver);
+          console.log("响应式获取", key, res);
+          if (!isReadonly) {
+              // 如果不是仅读的
+              // 收集effect依赖
+              Track(target, 0 /* TrackOpTypes.GET */, key);
+          }
+          if (shall) {
+              // 浅层代理
+              return res;
+          }
+          // 如果是对象 递归代理
+          // 面试 懒代理  如果不使用 先不代理
+          if (isObject(res)) {
+              return isReadonly ? readonly(res) : reactive(res);
+          }
+          return res;
+      };
+  }
+  const reactiveHandlers = {
+      get,
+      set,
+  };
+  const shallowReactiveHandlers = {
+      get: shallowReactiveGet,
+      set: shallowReactiveSet,
+  };
+  const readonlyHandlers = {
+      get: readonlyGet,
+      set: (target, key, value) => {
+          console.warn(`Set operation on key "${String(key)}" failed: target is readonly.`);
+          return true;
+      },
+  };
+  const shallowReadonlyHandlers = {
+      get: shallowReadonlyGet,
+      set: (target, key, value) => {
+          console.warn(`Set operation on key "${String(key)}" failed: target is readonly.`);
+          return true;
+      },
+  };
+  // 面试 ： 响应式 api  reactive  proxy 懒代理
+  //  readonly   effect  {}
+
+  function reactive(target) {
+      /**
+       * 1. target 是不是对象
+       * 2. false 代表不是 readonly
+       * 3. reactiveHandlers 代表深层代理
+       */
+      return createReactiveObject(target, false, reactiveHandlers); // 高阶函数
+  }
+  function shallowReactive(target) {
+      /**
+       * 1. target 是不是对象
+       * 2. false 代表不是 readonly
+       * 3. shallowReactiveHandlers 代表浅层代理
+       */
+      return createReactiveObject(target, false, shallowReactiveHandlers);
+  }
+  function readonly(target) {
+      /**
+       * 1. target 是不是对象
+       * 2. true 代表是 readonly
+       * 3. readonlyHandlers 代表深层代理
+       */
+      return createReactiveObject(target, true, readonlyHandlers);
+  }
+  function shallowReadonly(target) {
+      /**
+       * 1. target 是不是对象
+       * 2. true 代表是 readonly
+       * 3. shallowReadonlyHandlers 代表浅层代理
+       */
+      return createReactiveObject(target, true, shallowReadonlyHandlers);
+  }
+  // 核心代理函数实现
+  // 
+  const reactiveMap = new WeakMap(); // key 只能是对象 自动垃圾回收
+  const readonlyMap = new WeakMap();
+  function createReactiveObject(target, isReadonly = false, baseHandlers) {
+      // 判断是否是对象
+      if (!isObject(target)) {
+          return target;
+      }
+      // 1. 查找缓存
+      const proxyMap = isReadonly ? readonlyMap : reactiveMap;
+      const exisitingProxy = proxyMap.get(target); // 如果已经代理过了 直接返回
+      if (exisitingProxy) {
+          return exisitingProxy;
+      }
+      // 2. 创建 Proxy
+      const proxy = new Proxy(target, baseHandlers);
+      proxyMap.set(target, proxy);
+      return proxy;
+  }
+  // 注意 核心 proxy
+
+  function ref(value) {
+      return createRef(value);
+  }
+  function shallowRef(value) {
+      return createRef(value, true);
+  }
+  function createRef(rawValue, shallow = false) {
+      // if (isRef(rawValue)) {
+      //   return rawValue;
+      // }
+      return new RefImpl(rawValue, shallow);
+  }
+  // 创建类
+  class RefImpl {
+      rawValue;
+      shallow;
+      _value;
+      __v_isRef = true;
+      constructor(rawValue, shallow) {
+          this.rawValue = rawValue;
+          this.shallow = shallow;
+          this._value = rawValue;
+      }
+      get value() {
+          // 收集依赖
+          Track(this, 0 /* TrackOpTypes.GET */, "value");
+          return this._value;
+      }
+      set value(newVal) {
+          if (hasChanged(newVal, this._value)) {
+              this._value = newVal;
+              this.rawValue = newVal;
+              // 触发更新
+              console.log("ref触发更新");
+              trigger(this, 2 /* TrackOpTypes.SET */, "value", newVal);
+          }
+      }
+  }
+  // 实现toRef
+  function toRef(object, key) {
+      return new ObjectRefImpl(object, key);
+  }
+  class ObjectRefImpl {
+      object;
+      key;
+      __v_isRef = true;
+      constructor(object, key) {
+          this.object = object;
+          this.key = key;
+      }
+      get value() {
+          return this.object[this.key];
+      }
+      set value(newVal) {
+          this.object[this.key] = newVal;
+      }
+  }
+  // 实现toRefs
+  function toRefs(object) {
+      const ret = Array.isArray(object) ? new Array(object.length) : {};
+      for (const key in object) {
+          ret[key] = toRef(object, key);
+      }
+      return ret;
+  }
+
+  function computed(getterOrOptions) {
+      // 这里的getterOrOptions 可能是一个函数，也可能是一个对象
+      let getter;
+      let setter;
+      if (isFunction(getterOrOptions)) {
+          getter = getterOrOptions;
+          setter = () => {
+              console.warn("Write operation failed: computed value is readonly");
+          };
+      }
+      else {
+          getter = getterOrOptions.get;
+          setter = getterOrOptions.set;
+      }
+      // 返回值
+      return new ComputedRefImpl(getter, setter);
+  }
+  class ComputedRefImpl {
+      _setter;
+      // 定义属性
+      _dirty = true; // 默认执行
+      _value; // 缓存值
+      effect; // 用于收集依赖
+      constructor(getter, _setter) {
+          this._setter = _setter;
+          this.effect = effect(getter, {
+              lazy: true,
+              scheduler: () => {
+                  if (!this._dirty) {
+                      this._dirty = true;
+                      // 触发更新
+                      // trigger(this, "set", "value");
+                  }
+              },
+          });
+      }
+      get value() {
+          // 获取执行
+          if (this._dirty) {
+              // 这个effect就是  构造函数中的 this.effect
+              this._value = this.effect();
+              this._dirty = false;
+          }
+          // 收集依赖
+          return this._value;
+      }
+      set value(newValue) {
+          this._setter(newValue);
+      }
+  }
 
   // createRender
   function createRender(renderOptionDom) {
+      // 获取全部的操作dom的方法
+      const { insert: hostInsert, remove: hostRemove, patchProps: hostPatchProp, createElement: hostCreateElement, createText: hostCreateText, createComment: hostCreateComment, setElementText: hostSetElementText, setText: hostSetText } = renderOptionDom;
       // 创建一个effect 让这个render执行
-      function setupRenderEffect(instance) {
+      function setupRenderEffect(instance, container) {
           // 需要创建一个 effect 在 effect 中调用 render 方法，
           // 这样 render 方法中拿到的数据会收集这个 effect
           // 属性改变了 会重新执行 effect
@@ -394,6 +770,19 @@ var VueRuntimeDom = (function (exports) {
               if (!instance.isMounted) {
                   // 获取到render  返回值
                   let proxy = instance.proxy;
+                  let subTree = instance.subTree = instance.render.call(proxy, proxy);
+                  console.log("subTree", subTree);
+                  // 组件渲染的节点 =》真实dom、
+                  // 渲染子树 创建元素
+                  patch(null, subTree, container);
+                  instance.isMounted = true;
+              }
+              else {
+                  // 更新逻辑
+                  console.log("更新逻辑");
+                  // 对比新 旧
+                  let proxy = instance.proxy;
+                  instance.subTree;
                   instance.render.call(proxy, proxy);
               }
           });
@@ -406,48 +795,140 @@ var VueRuntimeDom = (function (exports) {
           // 2、解析数据到这个实例对象上
           setupComponent(instance);
           // 3 、创建一个effect 让这个render执行
-          setupRenderEffect(instance);
+          setupRenderEffect(instance, container);
       };
       // 组件的创建
       const processComponent = (n1, n2, container) => {
           {
               // 第一次挂载时
               // 组件的挂载
-              mountComponent(n2);
+              mountComponent(n2, container);
+          }
+      };
+      // -----------------------处理文本-----------------------
+      const processText = (n1, n2, container) => {
+          {
+              // 初始化
+              // 创建文本 渲染到页面中
+              hostInsert(hostCreateText(n2.children), container);
+          }
+      };
+      // -----------------------处理元素-----------------------
+      const mountChildren = (children, container) => {
+          for (let i = 0; i < children.length; i++) {
+              let child = CVnode(children[i]);
+              patch(null, child, container);
           }
       };
       const patch = (n1, n2, container) => {
-          // 针对不同的类型 1 组件  2  元素
-          let { shapeFlag } = n2;
-          if (shapeFlag & ShapeFlags.ELEMENT) ;
-          else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
-              processComponent(n1, n2);
+          // 针对不同的类型 1 组件  2  元素 3 文本
+          let { shapeFlag, type } = n2;
+          console.log("type", type);
+          switch (type) {
+              case TEXT:
+                  processText(n1, n2, container);
+                  break;
+              default:
+                  if (shapeFlag & ShapeFlags.ELEMENT) {
+                      // 处理元素 =》 创建元素
+                      processElement(n1, n2, container);
+                  }
+                  else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+                      processComponent(n1, n2, container);
+                  }
+          }
+      };
+      const processElement = (n1, n2, container) => {
+          {
+              // 初始化
+              mountElement(n2, container);
+          }
+      };
+      const mountElement = (vnode, container) => {
+          // 递归 渲染 h('div',{},h('span',{},'hello')) => dom操作 =》放到对应的页面中
+          let { type, props, shapeFlag, children } = vnode;
+          // 创建元素
+          let el = hostCreateElement(type);
+          // 添加属性
+          if (props) {
+              for (let key in props) {
+                  hostPatchProp(el, key, null, props[key]);
+              }
+          }
+          // 处理儿子
+          // h('div, {style:{color:'red'}},'text')  //儿子是文本
+          // h('div, {style:{color:'red'}},['text1','text2'])   //儿子是数组
+          // h('div, {style:{color:'red'}},h('span',{},'hello')) // 儿子是元素
+          if (children) {
+              if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+                  console.log("children-走到这里了吗");
+                  hostSetElementText(el, children);
+              }
+              else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+                  mountChildren(children, el);
+              }
+              // 放到对应的位置
+              hostInsert(el, container);
           }
       };
       let render = (vnode, container) => {
-          console.log("render~~~", vnode);
+          console.log("render~11111111~~", vnode);
           // 这里就得到了虚拟dom ， 然后将虚拟dom转换成真实dom
           // 渲染  第一次
-          patch(null, vnode); // 第一个参数 旧节点 第二个参数 新节点  第三个参数 位置
+          patch(null, vnode, container); // 第一个参数 旧节点 第二个参数 新节点  第三个参数 位置
       };
       return {
           // 创建vNode
           createApp: apiCreateApp(render),
       };
+      // 给组件 创建一个instance 添加相关信息
+      // 处理 setup  中 context 四个参数
+      // 通过代理 方便 proxy 取值
+      // render (1) setup 返回值是一个函数  就是 render
+      // 如果 setup 返回值是一个函数 就执行  源码中  就 是通过一个判断 来解决
+      // 如果 setup 返回值是一个对象 就是值
   }
-  // 给组件 创建一个instance 添加相关信息
-  // 处理 setup  中 context 四个参数
-  // 通过代理 方便 proxy 取值
-  // render (1) setup 返回值是一个函数  就是 render
-  // 如果 setup 返回值是一个函数 就执行  源码中  就 是通过一个判断 来解决
-  // 如果 setup 返回值是一个对象 就是值
+
+  function h(type, propsOrChildren, children) {
+      // 创建虚拟节点
+      const i = arguments.length; // 参数的长度
+      if (i === 2) {
+          // 如果参数的长度为2
+          if (isObject(propsOrChildren) && !isArray(propsOrChildren)) {
+              // 如果是对象并且不是数组
+              if (isVnode) {
+                  // 如果是虚拟节点
+                  return createVNode(type, null, [propsOrChildren]);
+              }
+              // 没有 儿子
+              return createVNode(type, propsOrChildren);
+          }
+          else {
+              // 就是 儿子  children
+              return createVNode(type, null, propsOrChildren);
+          }
+      }
+      else {
+          // 三个参数
+          if (i > 3) {
+              // 如果参数的长度大于3
+              children = Array.prototype.slice.call(arguments, 2);
+          }
+          else if (i === 3 && isVnode(children)) {
+              // 如果参数的长度等于3 并且是虚拟节点
+              children = [children];
+          }
+          return createVNode(type, propsOrChildren, children);
+      }
+  }
+  // h函数是变成虚拟dom的函数
 
   // runtime-dom  这个文件时操作dom的核心文件 1、创建dom 2、更新dom 3、删除dom
   // vue3 dom 的 全部 操作
   const renderOptionDom = extend({ patchProps }, nodeOps);
   // createApp
   const createApp = (rootComponent, rootProps = null) => {
-      let app = createRender().createApp(rootComponent, rootProps);
+      let app = createRender(renderOptionDom).createApp(rootComponent, rootProps);
       let { mount } = app;
       app.mount = (container) => {
           container = nodeOps.querySelector(container);
@@ -462,8 +943,20 @@ var VueRuntimeDom = (function (exports) {
       return app;
   };
 
+  exports.computed = computed;
   exports.createApp = createApp;
+  exports.createRender = createRender;
+  exports.effect = effect;
+  exports.h = h;
+  exports.reactive = reactive;
+  exports.readonly = readonly;
+  exports.ref = ref;
   exports.renderOptionDom = renderOptionDom;
+  exports.shallowReactive = shallowReactive;
+  exports.shallowReadonly = shallowReadonly;
+  exports.shallowRef = shallowRef;
+  exports.toRef = toRef;
+  exports.toRefs = toRefs;
 
   return exports;
 
