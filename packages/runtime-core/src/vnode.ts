@@ -24,6 +24,7 @@ export const createVNode = (type, props, children = null) => {
     children, // 子节点
     key: props && props.key, // key
     el: null, // 真实节点
+    conmponent: {}, // 组件实例
     shapeFlag,
   };
   // 如果有儿子节点
@@ -44,4 +45,9 @@ function normalizeChildren(vnode, children) {
   }
   vnode.shapeFlag |= type; // 位运算符 这里是位运算
   // 例如 0000100 | 0000010 = 0000110
+}
+
+export function isVnode(vnode) {
+  // 判断是不是虚拟节点
+  return vnode._v_isVNode;
 }

@@ -12,8 +12,18 @@
       console.log(VueRuntimeDom);
       const { createApp } = VueRuntimeDom;
       let App = {
-        render() {
-          console.log("render");
+        setup(props, ctx) {
+          console.log("setup", props, ctx);
+          // return () => {
+          //   console.log("render", props.name);
+          // };
+        },
+
+        render(proxy) {
+          // h("div", null, "1000");
+          // h函数
+
+          console.log("render", this, proxy);
         },
       };
       createApp(App, { name: "张三", age: 10 }).mount("#app");
