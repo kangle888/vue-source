@@ -10,13 +10,18 @@
     <script src="../runtime-dom/dist/runtime-dom.global.js"></script>
     <script>
       console.log(VueRuntimeDom);
-      const { createApp , h} = VueRuntimeDom;
+      const { createApp , h, reactive} = VueRuntimeDom;
       let App = {
         setup(props, ctx) {
-          console.log("setup", props, ctx);
+          // console.log("setup", props, ctx);
           // return () => {
           //   console.log("render", props.name);
           // };
+          let state = reactive({ name: "张三", isFlag: false });
+          setTimeout(() => {
+            state.isFlag = true;
+          }, 3000);
+          return { state };
         },
 
         render(proxy) {
@@ -28,7 +33,23 @@
           // h("div", {});
           // children
           // h("div", {}, "1000");
-          return h("div", {style:{color:"red"}}, "hello");
+          console.log("render------", proxy);
+
+          if (proxy.state.isFlag) {
+            return h("div", {style:{color:"red"}}, [
+              h("div", {key:'C'}, "新的数组1"),
+              // h("div", {key:'B'}, "新的数组"),
+              // h("div", {key:'A'}, "新的数组"),
+            ]);
+          } else {
+            return h("div", {style:{color:"green"}},[
+              h("div", {key:'C'}, "新的数组1"),
+              h("div", {key:'B'}, "新的数组"),
+              h("div", {key:'A'}, "新的数组"),
+            ] );
+          }
+
+          // return h("div", {style:{color:"red"}}, "hello");
           // console.log("render", this, proxy);
         },
       };
