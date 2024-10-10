@@ -15,3 +15,4 @@ export declare const createApp: (rootComponent: any, rootProps?: any) => {
     _container: any;
     mount(rootContainer: any): void;
 };
+export * from "@vue/runtime-core";

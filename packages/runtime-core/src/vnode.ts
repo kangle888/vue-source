@@ -51,3 +51,12 @@ export function isVnode(vnode) {
   // 判断是不是虚拟节点
   return vnode._v_isVNode;
 }
+
+// 元素的children 变成vnode
+export const TEXT = Symbol("text");
+export function CVnode(child) {
+  if(isObject(child)){
+    return child;
+  }
+  return createVNode(TEXT, null, child + "");
+}
