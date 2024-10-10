@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <style>
+    .light {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      margin: 10px auto;
+    }
+    #red {
+      background-color: red;
+    }
+    #green {
+      background-color: green;
+    }
+    #yellow {
+      background-color: yellow;
+    }
+  </style>
+  <body>
+    <div id="red" class="light"></div>
+    <div id="green" class="light"></div>
+    <div id="yellow" class="light"></div>
+  </body>
+  <script>
+    let red = document.getElementById("red");
+    let green = document.getElementById("green");
+    let yellow = document.getElementById("yellow");
+
+    let redInterval = setInterval(() => {
+      red.style.opacity = 1; // 亮
+      setTimeout(() => {
+        red.style.opacity = 0.1; // 暗
+      }, 3000);
+    }, 6000);
+
+    let greenInterval = setInterval(() => {
+      setTimeout(() => {
+        // 在红灯亮完后开始
+        green.style.opacity = 1; // 暗
+        setTimeout(() => {
+          green.style.opacity = 0; // 亮
+        }, 1000); // 绿灯亮1秒
+      }, 3000); // 等待红灯亮完的时间
+    }, 6000);
+
+    let yellowInterval = setInterval(() => {
+      setTimeout(() => {
+        // 在绿灯亮完后开始
+        setTimeout(() => {
+          yellow.style.opacity = 1; // 暗
+          setTimeout(() => {
+            yellow.style.opacity = 0; // 亮
+          }, 2000);
+        }, 4000);
+      }, 0);
+    }, 6000);
+  </script>
+</html>

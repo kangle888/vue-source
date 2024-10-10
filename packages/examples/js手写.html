@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script>
+      // 防抖 n秒内只执行一次，如果n秒内再次触发，则重新计算时间
+      function debounce(fn, delay) {
+        let timier = null;
+        return function () {
+          if (timier) {
+            clearTimeout(timier);
+          }
+          timer = setTimeout(() => {
+            fn.apply(this, arguments);
+          }, delay);
+        };
+      }
+
+      const obj = {
+        name: "Debounce Test",
+        handleClick: debounce(function (message) {
+          console.log(this.name, message);
+        }, 1000),
+      };
+
+      obj.handleClick("Hello World");
+      // 节流 n秒内只执行一次，如果n秒内再次触发，则不执行
+      function throttle(fn, delay) {
+        let flag;
+        return function () {
+          if (!flag) {
+            fn.apply(this, arguments);
+            flag = true;
+            setTimeout(() => {
+              flag = false;
+            }, delay);
+          }
+        };
+      }
+      const obj2 = {
+        name: "Throttle Test",
+        handleClick: throttle(function (message) {
+          console.log(this.name, message);
+        }, 1000),
+      };
+
+      obj2.handleClick("Hello World");
+    </script>
+  </body>
+</html>
